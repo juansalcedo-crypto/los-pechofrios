@@ -7,7 +7,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!key) return res.status(500).json({ error: 'Falta FOOTBALL_DATA_API_KEY en Vercel.' });
 
   // Cache de 60s para no pasarse del limite gratuito de la API
-  if (cache && Date.now() - cache.ts < 60_000) {
+  if (cache && Date.now() - cache.ts < 30_000) {
     return res.status(200).json(cache.data);
   }
 
@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!r.ok) return res.status(500).json({ error: 'football-data respondio ' + r.status });
     const data = await r.json();
     cache = { data: { matches: data.matches }, ts: Date.now() };
-    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
+    res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60');
     return res.status(200).json({ matches: data.matches });
   } catch (e: any) {
     return res.status(500).json({ error: e.message });
