@@ -36,9 +36,9 @@ function dayStr(d: string | Date) {
 function isLive(m: Match) { return m.status === 'IN_PLAY' || m.status === 'PAUSED'; }
 function isDone(m: Match) { return m.status === 'FINISHED'; }
 function isOpen(m: Match) { return !isLive(m) && !isDone(m) && new Date(m.utcDate).getTime() > Date.now(); }
-// Late window: up to 12 min after kickoff, only while it's still 0-0.
+// Late window: up to 4 min after kickoff, only while it's still 0-0.
 // Based on kickoff time (not API status) because the API can lag a few minutes.
-const GRACE_MS = 12 * 60 * 1000;
+const GRACE_MS = 4 * 60 * 1000;
 function inGrace(m: Match) {
   if (isDone(m)) return false;
   const dt = Date.now() - new Date(m.utcDate).getTime();
@@ -239,7 +239,7 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
           </div>
         )
       )}
-      {started && grace && <p className="grace-note">⏱ LATE WINDOW OPEN — bets allowed until min 12 while it's 0–0</p>}
+      {started && grace && <p className="grace-note">⏱ LATE WINDOW OPEN — bets allowed until min 4 while it's 0–0</p>}
       {started && !grace && <p className="locked">🔒 ALL BETS CLOSED — match in play</p>}
     </article>
   );
