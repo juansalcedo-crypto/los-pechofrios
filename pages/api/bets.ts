@@ -46,9 +46,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!Number.isFinite(amount) || amount <= 0)
         return res.status(400).json({ error: 'Bet amount must be greater than 0.' });
 
-      // Betting window: open until kickoff, plus a 10-minute grace
+      // Betting window: open until kickoff, plus a 12-minute grace
       // period after kickoff ONLY while the score is still 0-0.
-      const GRACE_MS = 10 * 60 * 1000;
+      const GRACE_MS = 12 * 60 * 1000;
       const ko = b.kickoff ? new Date(b.kickoff).getTime() : 0;
       if (!ko || Date.now() > ko + GRACE_MS)
         return res.status(400).json({ error: 'Betting is closed for this match.' });
