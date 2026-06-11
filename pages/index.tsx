@@ -36,6 +36,13 @@ function dayStr(d: string | Date) {
 function isLive(m: Match) { return m.status === 'IN_PLAY' || m.status === 'PAUSED'; }
 function isDone(m: Match) { return m.status === 'FINISHED'; }
 function isOpen(m: Match) { return !isLive(m) && !isDone(m) && new Date(m.utcDate).getTime() > Date.now(); }
+// Late window: up to 10 min after kickoff, only while it's still 0-0
+const GRACE_MS = 10 * 60 * 1000;
+function inGrace(m: Match) {
+  if (!isLive(m)) return false;
+  if (Date.now() - new Date(m.utcDate).getTime() > GRACE_MS) return false;
+  return (m.score.fullTime.home ?? 0) === 0 && (m.score.fullTime.away ?? 0) === 0;
+}
 function betWon(m: Match, b: Bet): boolean {
   if (b.bet_type === '1X2') return winnerToPick(m.score.winner) === b.pick;
   return m.score.fullTime.home === b.score_home && m.score.fullTime.away === b.score_away;
@@ -88,7 +95,8 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
   const kickoff = new Date(match.utcDate);
   const live = isLive(match);
   const done = isDone(match);
-  const bettable = isOpen(match);
+  const grace = inGrace(match);
+  const bettable = isOpen(match) || grace;
   const matchBets = bets.filter((b) => b.match_id === match.id);
   const pot = matchBets.reduce((s, b) => s + b.amount, 0);
   const settled = done ? settlePool(match, matchBets) : [];
@@ -166,7 +174,7 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
                 <span className="what">{betLabel(b, match)}</span>
                 <span className="amt">{fmtMoney(b.amount)}</span>
                 {s && <span className="pay">{s.won ? '→ ' + fmtMoney(s.payout) : (s.payout > 0 ? '↩ refund' : '✗')}</span>}
-                {!s && bettable && b.player === player && (
+                {!s && isOpen(match) && b.player === player && (
                   <button className="x" title="Cancel bet" onClick={() => onCancel(b.id)}>✕</button>
                 )}
               </div>
@@ -228,7 +236,8 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
           </div>
         )
       )}
-      {live && <p className="locked">🔒 Betting closed — match in play</p>}
+      {live && grace && <p className="grace-note">⏱ LATE WINDOW OPEN — bets allowed until min 10 while it's 0–0</p>}
+      {live && !grace && <p className="locked">🔒 Betting closed — match in play</p>}
     </article>
   );
 }
@@ -637,6 +646,11 @@ export default function Home() {
         .note { margin-top: 8px; font-size: 0.85rem; color: var(--rojo); font-weight: 600; }
         .note.ok { color: var(--verde); }
         .locked { margin-top: 10px; text-align: center; color: var(--gris); font-size: 0.82rem; }
+        .grace-note {
+          margin-top: 10px; text-align: center; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.05em;
+          color: var(--verde); background: rgba(61,220,132,0.08); border: 1px dashed var(--verde);
+          border-radius: 9px; padding: 6px; animation: pulse 1.8s infinite;
+        }
         .board { background: var(--paño); border: 1px solid var(--borde); border-radius: 16px; padding: 8px; overflow-x: auto; }
         .board-row {
           display: grid; grid-template-columns: 36px 1.4fr 0.6fr 0.6fr 1fr 1fr 1fr;
