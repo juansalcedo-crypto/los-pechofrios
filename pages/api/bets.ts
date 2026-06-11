@@ -45,8 +45,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!b.match_id) return res.status(400).json({ error: 'Missing match.' });
       if (!Number.isFinite(amount) || amount <= 0)
         return res.status(400).json({ error: 'Bet amount must be greater than 0.' });
-      if (!b.kickoff || new Date(b.kickoff).getTime() <= Date.now())
-        return res.status(400).json({ error: 'Betting is closed for this match (already started).' });
+
+      // Betting window: open until kickoff, plus a 10-minute grace
+      // period after kickoff ONLY while the score is still 0-0.
+      const GRACE_MS = 10 * 60 * 1000;
+      const ko = b.kickoff ? new Date(b.kickoff).getTime() : 0;
+      if (!ko || Date.now() > ko + GRACE_MS)
+        return res.status(400).json({ error: 'Betting is closed for this match.' });
+      if (Date.now() > ko) {
+        // Inside the grace window: verify with the live API that it is still 0-0
+        const fk = process.env.FOOTBALL_DATA_API_KEY;
+        if (fk) {
+          const mr = await fetch('https://api.football-data.org/v4/matches/' + Number(b.match_id), {
+            headers: { 'X-Auth-Token': fk },
+          });
+          if (mr.ok) {
+            const md = await mr.json();
+            const gh = md?.score?.fullTime?.home ?? 0;
+            const ga = md?.score?.fullTime?.away ?? 0;
+            if (md?.status === 'FINISHED' || gh !== 0 || ga !== 0)
+              return res.status(400).json({ error: 'Late window closed — someone already scored.' });
+          }
+        }
+      }
       if (betType === '1X2' && !['HOME', 'DRAW', 'AWAY'].includes(b.pick))
         return res.status(400).json({ error: 'Choose 1, X or 2.' });
       if (betType === 'SCORE') {
