@@ -36,8 +36,8 @@ function dayStr(d: string | Date) {
 function isLive(m: Match) { return m.status === 'IN_PLAY' || m.status === 'PAUSED'; }
 function isDone(m: Match) { return m.status === 'FINISHED'; }
 function isOpen(m: Match) { return !isLive(m) && !isDone(m) && new Date(m.utcDate).getTime() > Date.now(); }
-// Late window: up to 10 min after kickoff, only while it's still 0-0
-const GRACE_MS = 10 * 60 * 1000;
+// Late window: up to 12 min after kickoff, only while it's still 0-0
+const GRACE_MS = 12 * 60 * 1000;
 function inGrace(m: Match) {
   if (!isLive(m)) return false;
   if (Date.now() - new Date(m.utcDate).getTime() > GRACE_MS) return false;
@@ -236,7 +236,7 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
           </div>
         )
       )}
-      {live && grace && <p className="grace-note">⏱ LATE WINDOW OPEN — bets allowed until min 10 while it's 0–0</p>}
+      {live && grace && <p className="grace-note">⏱ LATE WINDOW OPEN — bets allowed until min 12 while it's 0–0</p>}
       {live && !grace && <p className="locked">🔒 Betting closed — match in play</p>}
     </article>
   );
@@ -297,18 +297,28 @@ export default function Home() {
   }, []);
 
   async function load() {
+    // Matches and bets load independently: if one fails, the other still shows.
     try {
-      const [rm, rb] = await Promise.all([fetch('/api/matches'), fetch('/api/bets')]);
-      const dm = await rm.json();
-      const db = await rb.json();
-      if (dm.error) setErr(dm.error);
-      else { setMatches(dm.matches || []); setErr(db.error || ''); }
-      if (!db.error) setBets(db.bets || []);
+      const rm = await fetch('/api/matches');
+      const dm = await rm.json().catch(() => ({ error: 'Matches API returned an invalid response.' }));
+      if (dm.error) setErr('Matches: ' + dm.error);
+      else { setMatches(dm.matches || []); setErr(''); }
     } catch {
-      setErr('Could not load data. Check your connection.');
-    } finally {
-      setReady(true);
+      setErr('Could not load matches. Check your connection.');
     }
+    try {
+      const rb = await fetch('/api/bets');
+      if (rb.status === 404) {
+        setErr((e) => (e ? e + ' · ' : '') + 'Bets API not found: the file pages/api/bets.ts is missing in GitHub.');
+      } else {
+        const db = await rb.json().catch(() => ({ error: 'Bets API returned an invalid response.' }));
+        if (db.error) setErr((e) => (e ? e + ' · ' : '') + 'Bets: ' + db.error);
+        else setBets(db.bets || []);
+      }
+    } catch {
+      /* bets are optional for viewing matches */
+    }
+    setReady(true);
   }
   useEffect(() => {
     load();
