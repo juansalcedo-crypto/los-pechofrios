@@ -36,11 +36,13 @@ function dayStr(d: string | Date) {
 function isLive(m: Match) { return m.status === 'IN_PLAY' || m.status === 'PAUSED'; }
 function isDone(m: Match) { return m.status === 'FINISHED'; }
 function isOpen(m: Match) { return !isLive(m) && !isDone(m) && new Date(m.utcDate).getTime() > Date.now(); }
-// Late window: up to 12 min after kickoff, only while it's still 0-0
+// Late window: up to 12 min after kickoff, only while it's still 0-0.
+// Based on kickoff time (not API status) because the API can lag a few minutes.
 const GRACE_MS = 12 * 60 * 1000;
 function inGrace(m: Match) {
-  if (!isLive(m)) return false;
-  if (Date.now() - new Date(m.utcDate).getTime() > GRACE_MS) return false;
+  if (isDone(m)) return false;
+  const dt = Date.now() - new Date(m.utcDate).getTime();
+  if (dt <= 0 || dt > GRACE_MS) return false;
   return (m.score.fullTime.home ?? 0) === 0 && (m.score.fullTime.away ?? 0) === 0;
 }
 function betWon(m: Match, b: Bet): boolean {
@@ -95,6 +97,7 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
   const kickoff = new Date(match.utcDate);
   const live = isLive(match);
   const done = isDone(match);
+  const started = !done && Date.now() >= kickoff.getTime();
   const grace = inGrace(match);
   const bettable = isOpen(match) || grace;
   const matchBets = bets.filter((b) => b.match_id === match.id);
@@ -140,8 +143,8 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
     <article className={'card' + (live ? ' is-live' : '')}>
       <div className="card-top">
         <span className="stage">{match.group || match.stage.split('_').join(' ')}</span>
-        {live ? <span className="tag live">● LIVE</span>
-          : done ? <span className="tag done">FINAL</span>
+        {done ? <span className="tag done">FINAL</span>
+          : (live || started) ? <span className="tag live">● LIVE</span>
           : <span className="tag time">{kickoff.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ })} · {kickoff.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: TZ })}</span>}
       </div>
 
@@ -150,7 +153,7 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
           {match.homeTeam.crest && <img src={match.homeTeam.crest} alt="" />}
           <span>{match.homeTeam.shortName || match.homeTeam.name}</span>
         </div>
-        {live || done
+        {live || done || started
           ? <div className="score">{match.score.fullTime.home ?? 0}–{match.score.fullTime.away ?? 0}</div>
           : <div className="score vs">VS</div>}
         <div className="team away">
@@ -236,8 +239,8 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
           </div>
         )
       )}
-      {live && grace && <p className="grace-note">⏱ LATE WINDOW OPEN — bets allowed until min 12 while it's 0–0</p>}
-      {live && !grace && <p className="locked">🔒 Betting closed — match in play</p>}
+      {started && grace && <p className="grace-note">⏱ LATE WINDOW OPEN — bets allowed until min 12 while it's 0–0</p>}
+      {started && !grace && <p className="locked">🔒 ALL BETS CLOSED — match in play</p>}
     </article>
   );
 }
@@ -322,7 +325,7 @@ export default function Home() {
   }
   useEffect(() => {
     load();
-    const t = setInterval(load, 60000);
+    const t = setInterval(load, 30000);
     return () => clearInterval(t);
   }, []);
 
