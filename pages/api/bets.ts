@@ -21,7 +21,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       error: 'Missing SUPABASE_URL / SUPABASE_ANON_KEY in Vercel environment variables.',
     });
   }
-  const base = SB_URL.replace(/\/$/, '') + '/rest/v1/polla_bets';
+  const TABLE = process.env.POLLA_TABLE || 'polla_bets';
+  const base = SB_URL.replace(/\/$/, '') + '/rest/v1/' + TABLE;
 
   try {
     // ---- List all bets ----
