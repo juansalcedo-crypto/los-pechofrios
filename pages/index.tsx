@@ -3,7 +3,7 @@ import Head from 'next/head';
 
 // ============ Types ============
 type PickT = 'HOME' | 'DRAW' | 'AWAY';
-type View = 'today' | 'active' | 'results' | 'winners' | 'ai';
+type View = 'today' | 'active' | 'results' | 'winners';
 
 interface Team { id: number; name: string; shortName?: string; tla?: string; crest?: string }
 interface Match {
@@ -17,40 +17,10 @@ interface Bet {
   score_home: number | null; score_away: number | null; amount: number; created_at: string;
 }
 
+const CLUB = process.env.NEXT_PUBLIC_CLUB_NAME || 'Los Pechofríos';
 const PLAYER_KEY = 'pechofrios_player_v1';
-const SOUND_KEY = 'pechofrios_sound_v1';
 const TZ = 'America/Bogota';
 const CHIP_VALUES = [5000, 10000, 20000, 50000];
-
-// Stadium horn + spoken GOOOOL, synthesized in the browser (no audio files needed)
-function playGoalSound() {
-  try {
-    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
-    const ctx = new Ctx();
-    const t0 = ctx.currentTime;
-    [233.08, 466.16, 116.54].forEach((f) => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = 'sawtooth';
-      o.frequency.value = f;
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.05);
-      g.gain.setValueAtTime(0.12, t0 + 1.1);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.7);
-      o.connect(g);
-      g.connect(ctx.destination);
-      o.start(t0);
-      o.stop(t0 + 1.8);
-    });
-  } catch {}
-  try {
-    const u = new SpeechSynthesisUtterance('¡Goool, goool, goooooool!');
-    u.lang = 'es-ES';
-    u.rate = 0.85;
-    u.pitch = 1.3;
-    window.speechSynthesis.speak(u);
-  } catch {}
-}
 
 const fmtMoney = (n: number) =>
   '$' + Math.round(n).toLocaleString('en-US');
@@ -276,46 +246,6 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
   );
 }
 
-// ============ AI Analyst ============
-function AIView({ matches }: { matches: Match[] }) {
-  const [q, setQ] = useState('');
-  const [a, setA] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-
-  async function ask() {
-    if (!q.trim() || busy) return;
-    setBusy(true); setErr(''); setA('');
-    const up = matches.filter(isOpen).slice(0, 20)
-      .map((m) => m.homeTeam.name + ' vs ' + m.awayTeam.name + ' (' + (m.group || m.stage) + ', ' + m.utcDate.slice(0, 10) + ')');
-    const past = matches.filter(isDone).slice(-15)
-      .map((m) => m.homeTeam.name + ' ' + m.score.fullTime.home + '-' + m.score.fullTime.away + ' ' + m.awayTeam.name);
-    try {
-      const r = await fetch('/api/predict', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q + ' (answer in English)', context: 'UPCOMING:\n' + up.join('\n') + '\n\nRECENT RESULTS:\n' + past.join('\n') }),
-      });
-      const d = await r.json();
-      if (!r.ok) setErr(d.error || 'Something failed.');
-      else setA(d.answer);
-    } catch { setErr('Connection error.'); }
-    finally { setBusy(false); }
-  }
-
-  return (
-    <div className="ai-box">
-      <div className="ai-form">
-        <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ask()}
-          placeholder="Who wins Colombia vs Germany?" />
-        <button className="gold" onClick={ask} disabled={busy}>{busy ? 'Dealing…' : 'ASK THE HOUSE'}</button>
-      </div>
-      {err && <div className="warn">{err}</div>}
-      {a && <div className="ai-answer">{a}</div>}
-      {!a && !err && <p className="hint">The house analyst reads the real fixture data and gives you a tip. A tip — not a guarantee. The house always reminds you of that.</p>}
-    </div>
-  );
-}
-
 // ============ Main ============
 export default function Home() {
   const [player, setPlayer] = useState('');
@@ -325,56 +255,6 @@ export default function Home() {
   const [bets, setBets] = useState<Bet[]>([]);
   const [err, setErr] = useState('');
   const [ready, setReady] = useState(false);
-  const [goal, setGoal] = useState<string | null>(null);
-  const [sound, setSound] = useState(true);
-  const soundRef = useRef(true);
-  const prevScores = useRef<Record<number, string> | null>(null);
-  const goalTimer = useRef<any>(null);
-
-  useEffect(() => {
-    try {
-      const s = localStorage.getItem(SOUND_KEY);
-      if (s !== null) { setSound(s === '1'); soundRef.current = s === '1'; }
-    } catch {}
-  }, []);
-
-  function toggleSound() {
-    const v = !soundRef.current;
-    soundRef.current = v;
-    setSound(v);
-    try { localStorage.setItem(SOUND_KEY, v ? '1' : '0'); } catch {}
-    if (v) playGoalSound(); // preview + unlocks browser audio
-  }
-
-  function celebrate(text: string) {
-    setGoal(text);
-    if (soundRef.current) playGoalSound();
-    try { (navigator as any).vibrate && (navigator as any).vibrate([200, 100, 200, 100, 500]); } catch {}
-    try {
-      document.title = '⚽ GOOOOL! — Los Pechofríos';
-      setTimeout(() => { document.title = 'Los Pechofríos — World Cup Betting Club'; }, 9000);
-    } catch {}
-    if (goalTimer.current) clearTimeout(goalTimer.current);
-    goalTimer.current = setTimeout(() => setGoal(null), 9000);
-  }
-
-  function detectGoals(fresh: Match[]) {
-    const prev = prevScores.current;
-    const next: Record<number, string> = {};
-    fresh.forEach((m) => {
-      const cur = (m.score.fullTime.home ?? 0) + '-' + (m.score.fullTime.away ?? 0);
-      next[m.id] = cur;
-      if (prev && prev[m.id] !== undefined && prev[m.id] !== cur && m.status !== 'FINISHED') {
-        celebrate(
-          '⚽ GOOOOL! ' + (m.homeTeam.shortName || m.homeTeam.name) + ' ' +
-          (m.score.fullTime.home ?? 0) + '–' + (m.score.fullTime.away ?? 0) + ' ' +
-          (m.awayTeam.shortName || m.awayTeam.name)
-        );
-      }
-    });
-    prevScores.current = next;
-  }
-
   useEffect(() => {
     try { const p = localStorage.getItem(PLAYER_KEY); if (p) setPlayer(p); } catch {}
   }, []);
@@ -385,7 +265,7 @@ export default function Home() {
       const rm = await fetch('/api/matches');
       const dm = await rm.json().catch(() => ({ error: 'Matches API returned an invalid response.' }));
       if (dm.error) setErr('Matches: ' + dm.error);
-      else { setMatches(dm.matches || []); detectGoals(dm.matches || []); setErr(''); }
+      else { setMatches(dm.matches || []); setErr(''); }
     } catch {
       setErr('Could not load matches. Check your connection.');
     }
@@ -469,14 +349,14 @@ export default function Home() {
   }, [bets, finished]);
 
   const NAV: [View, string][] = [
-    ['today', '🎰 Today'], ['active', '🎟 Active Bets'], ['results', '📜 Results'], ['winners', '🏆 Winners'], ['ai', '🤖 AI Tips'],
+    ['today', '🎰 Today'], ['active', '🎟 Active Bets'], ['results', '📜 Results'], ['winners', '🏆 Winners'],
   ];
 
   return (
     <>
       <Head>
-        <title>Los Pechofríos — World Cup Betting Club</title>
-        <meta name="description" content="Private World Cup 2026 betting pool — Los Pechofríos." />
+        <title>{CLUB + ' — World Cup Betting Club'}</title>
+        <meta name="description" content="Private World Cup 2026 betting pool." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -487,7 +367,7 @@ export default function Home() {
       {!player && (
         <div className="gate">
           <div className="gate-card">
-            <div className="gate-mark">LOS PECHOFRÍOS ❄</div>
+            <div className="gate-mark">{CLUB} ❄</div>
             <p className="gate-sub">WORLD CUP 2026 · PRIVATE BETTING CLUB</p>
             <p className="gate-q">Who's playing tonight?</p>
             <input
@@ -502,25 +382,14 @@ export default function Home() {
         </div>
       )}
 
-      {goal && (
-        <div className="goal-banner" onClick={() => setGoal(null)} role="alert">
-          <span>{goal}</span>
-        </div>
-      )}
-
       <main className="wrap">
         <header className="hero">
-          <h1 className="mark">Los Pechofríos ❄</h1>
+          <h1 className="mark">{CLUB} ❄</h1>
           <p className="sub">WORLD CUP 2026 BETTING CLUB · AUTO-REFRESH EVERY MINUTE</p>
           {player && (
-            <div className="chips-row">
-              <div className="player-chip">
-                🎩 {player}
-                <button onClick={() => { setPlayer(''); setNameInput(''); try { localStorage.removeItem(PLAYER_KEY); } catch {} }}>switch</button>
-              </div>
-              <button className="sound-chip" onClick={toggleSound} title="Goal alert sound">
-                {sound ? '🔔 GOAL ROAR ON' : '🔕 GOAL ROAR OFF'}
-              </button>
+            <div className="player-chip">
+              🎩 {player}
+              <button onClick={() => { setPlayer(''); setNameInput(''); try { localStorage.removeItem(PLAYER_KEY); } catch {} }}>switch</button>
             </div>
           )}
         </header>
@@ -598,13 +467,6 @@ export default function Home() {
           </>
         )}
 
-        {/* ---- AI ---- */}
-        {ready && view === 'ai' && (
-          <>
-            <h2 className="h">Ask the House Analyst</h2>
-            <AIView matches={matches} />
-          </>
-        )}
       </main>
 
       <style jsx global>{`
@@ -638,27 +500,6 @@ export default function Home() {
           padding: 7px 16px; font-weight: 700; color: var(--oro);
         }
         .player-chip button { background: none; border: none; color: var(--gris); cursor: pointer; font-size: 0.75rem; text-decoration: underline; }
-        .chips-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
-        .chips-row .player-chip { margin-top: 0; }
-        .sound-chip {
-          background: var(--paño); border: 1px solid var(--borde); border-radius: 999px;
-          padding: 7px 14px; color: var(--gris); font-weight: 800; font-size: 0.72rem;
-          letter-spacing: 0.05em; cursor: pointer; font-family: inherit;
-        }
-        .sound-chip:hover { color: var(--oro); border-color: var(--oro2); }
-        .goal-banner {
-          position: fixed; top: 0; left: 0; right: 0; z-index: 200; cursor: pointer;
-          text-align: center; padding: 18px 12px;
-          font-family: 'Anton', sans-serif; font-size: clamp(1.3rem, 5vw, 2.2rem);
-          letter-spacing: 0.04em; color: #0c1405;
-          background: linear-gradient(90deg, var(--verde), var(--oro), var(--verde));
-          background-size: 200% 100%;
-          animation: goalflash 0.7s linear infinite, goalslide 0.35s ease-out;
-          box-shadow: 0 6px 30px rgba(61,220,132,0.5);
-        }
-        @keyframes goalflash { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } }
-        @keyframes goalslide { from { transform: translateY(-100%); } to { transform: translateY(0); } }
-        @media (prefers-reduced-motion: reduce) { .goal-banner { animation: none; } }
         .nav {
           display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
           position: sticky; top: 0; padding: 12px 0; z-index: 20;
