@@ -18,12 +18,65 @@ interface Bet {
 }
 
 const CLUB = process.env.NEXT_PUBLIC_CLUB_NAME || 'Los Pechofríos';
+const LANG = (process.env.NEXT_PUBLIC_LANG || 'en').toLowerCase().startsWith('es') ? 'es' : 'en';
+const LOC = LANG === 'es' ? 'es-CO' : 'en-US';
+const T = LANG === 'es' ? {
+  titleSuffix: ' — Polla Mundialista', gateSub: 'MUNDIAL 2026 · CLUB PRIVADO DE APUESTAS',
+  gateQ: '¿Quién juega esta noche?', namePh: 'Tu nombre', enter: 'ENTRAR AL CLUB',
+  gateNote: 'Usa siempre el mismo nombre — tus apuestas y ganancias se llevan por nombre.',
+  sub: 'POLLA MUNDIAL 2026 · SE ACTUALIZA SOLA CADA MINUTO', switchP: 'cambiar',
+  navToday: '🎰 Hoy', navActive: '🎟 Apuestas Activas', navResults: '📜 Resultados', navWinners: '🏆 Ganadores',
+  loading: 'Barajando…', todayBoard: 'Tablero de Hoy · ',
+  noToday: 'No hay partidos hoy. La mesa reabre con la próxima fecha.',
+  comingUp: 'Próximos — apuesta anticipado', activeH: 'Apuestas Activas — plata en la mesa',
+  noActive: 'No hay tiquetes vivos. Ve a Hoy y arriesga algo.',
+  resultsH: 'Partidos Pasados y Botes Repartidos', noResults: 'Aún no hay partidos terminados.',
+  winnersH: 'La Tabla — quién le debe a quién',
+  thPlayer: 'Jugador', thBets: 'Apuestas', thHits: 'Aciertos', thStaked: 'Apostado', thReturned: 'Recibido', thNet: 'Neto',
+  potHint: 'Cómo funciona el bote: por partido y tipo de apuesta, la plata de los que pierden se reparte entre los que aciertan, proporcional a lo que apostó cada uno. Si nadie acierta, se devuelve todo. El "Neto" dice cuánto va ganando o perdiendo cada jugador — cuadren cuentas en efectivo según eso. 🤝',
+  noWinners: 'Aún no hay apuestas liquidadas. La corona espera.',
+  live: '● EN VIVO', final: 'FINAL', pot: 'BOTE', betWord: 'apuesta', betsWord: 'apuestas',
+  placeBet: 'HAZ TU APUESTA', matchWinner: 'Ganador del Partido', exactScore: 'Marcador Exacto',
+  home: 'Local', away: 'Visita', draw: 'Empate', clear: 'BORRAR', amountPh: 'Monto', betBtn: 'APOSTAR ',
+  pickFirst: 'Primero elige 1, X o 2.', amountFirst: 'Pon el monto de la apuesta.',
+  placed: '✓ Apuesta hecha. ¡Suerte!', couldNot: 'No se pudo apostar.', connErr: 'Error de conexión.', close: 'Cerrar',
+  graceNote: "⏱ VENTANA TARDÍA ABIERTA — se puede apostar hasta el min 4 mientras vaya 0–0",
+  locked: '🔒 NO VA MÁS — partido en juego', cancelTitle: 'Cancelar apuesta', refund: '↩ devuelta',
+  exact: 'Exacto ', drawX: 'Empate (X)', couldNotCancel: 'No se pudo cancelar.',
+  loadMatchesErr: 'No se pudieron cargar los partidos. Revisa tu conexión.',
+  matchesPrefix: 'Partidos: ', betsPrefix: 'Apuestas: ',
+} : {
+  titleSuffix: ' — World Cup Betting Club', gateSub: 'WORLD CUP 2026 · PRIVATE BETTING CLUB',
+  gateQ: "Who's playing tonight?", namePh: 'Your name', enter: 'ENTER THE CLUB',
+  gateNote: 'Use the same name every time — your bets and winnings are tracked by name.',
+  sub: 'WORLD CUP 2026 BETTING CLUB · AUTO-REFRESH EVERY MINUTE', switchP: 'switch',
+  navToday: '🎰 Today', navActive: '🎟 Active Bets', navResults: '📜 Results', navWinners: '🏆 Winners',
+  loading: 'Shuffling the deck…', todayBoard: "Today's Board · ",
+  noToday: 'No matches today. The table reopens with the next fixture.',
+  comingUp: 'Coming Up — bet early', activeH: 'Active Bets — money on the table',
+  noActive: 'No live tickets. Go to Today and put something on the line.',
+  resultsH: 'Past Matches & Settled Pots', noResults: 'No finished matches yet.',
+  winnersH: 'The Leaderboard — who owes who',
+  thPlayer: 'Player', thBets: 'Bets', thHits: 'Hits', thStaked: 'Staked', thReturned: 'Returned', thNet: 'Net',
+  potHint: 'How the pot works: per match and bet type, losers\' stakes are split among winners proportionally to what each one bet. If nobody hits it, everyone gets refunded. "Net" is what each player is up or down — settle up in cash accordingly. 🤝',
+  noWinners: 'No bets settled yet. The crown awaits.',
+  live: '● LIVE', final: 'FINAL', pot: 'POT', betWord: 'bet', betsWord: 'bets',
+  placeBet: 'PLACE YOUR BET', matchWinner: 'Match Winner', exactScore: 'Exact Score',
+  home: 'Home', away: 'Away', draw: 'Draw', clear: 'CLEAR', amountPh: 'Amount', betBtn: 'BET ',
+  pickFirst: 'Pick 1, X or 2 first.', amountFirst: 'Enter your bet amount.',
+  placed: '✓ Bet placed. Good luck!', couldNot: 'Could not place bet.', connErr: 'Connection error.', close: 'Close',
+  graceNote: "⏱ LATE WINDOW OPEN — bets allowed until min 4 while it's 0–0",
+  locked: '🔒 ALL BETS CLOSED — match in play', cancelTitle: 'Cancel bet', refund: '↩ refund',
+  exact: 'Exact ', drawX: 'Draw (X)', couldNotCancel: 'Could not cancel.',
+  loadMatchesErr: 'Could not load matches. Check your connection.',
+  matchesPrefix: 'Matches: ', betsPrefix: 'Bets: ',
+};
 const PLAYER_KEY = 'pechofrios_player_v1';
 const TZ = 'America/Bogota';
 const CHIP_VALUES = [5000, 10000, 20000, 50000];
 
 const fmtMoney = (n: number) =>
-  '$' + Math.round(n).toLocaleString('en-US');
+  '$' + Math.round(n).toLocaleString(LOC);
 
 function winnerToPick(w: string | null): PickT | null {
   if (w === 'HOME_TEAM') return 'HOME';
@@ -51,12 +104,12 @@ function betWon(m: Match, b: Bet): boolean {
   return m.score.fullTime.home === b.score_home && m.score.fullTime.away === b.score_away;
 }
 function betLabel(b: Bet, m?: Match): string {
-  if (b.bet_type === 'SCORE') return 'Exact ' + b.score_home + '–' + b.score_away;
-  if (b.pick === 'DRAW') return 'Draw (X)';
-  if (!m) return b.pick === 'HOME' ? 'Home (1)' : 'Away (2)';
+  if (b.bet_type === 'SCORE') return T.exact + b.score_home + '–' + b.score_away;
+  if (b.pick === 'DRAW') return T.drawX;
+  if (!m) return b.pick === 'HOME' ? T.home + ' (1)' : T.away + ' (2)';
   return b.pick === 'HOME'
-    ? (m.homeTeam.tla || m.homeTeam.shortName || 'Home') + ' (1)'
-    : (m.awayTeam.tla || m.awayTeam.shortName || 'Away') + ' (2)';
+    ? (m.homeTeam.tla || m.homeTeam.shortName || T.home) + ' (1)'
+    : (m.awayTeam.tla || m.awayTeam.shortName || T.away) + ' (2)';
 }
 
 // Pari-mutuel settlement: per match + bet type, losers' money is split
@@ -107,8 +160,8 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
 
   async function placeBet() {
     setMsg('');
-    if (type === '1X2' && !pick) return setMsg('Pick 1, X or 2 first.');
-    if (!amount || amount <= 0) return setMsg('Enter your bet amount.');
+    if (type === '1X2' && !pick) return setMsg(T.pickFirst);
+    if (!amount || amount <= 0) return setMsg(T.amountFirst);
     setBusy(true);
     try {
       const r = await fetch('/api/bets', {
@@ -127,14 +180,14 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
         }),
       });
       const data = await r.json();
-      if (!r.ok) setMsg(data.error || 'Could not place bet.');
+      if (!r.ok) setMsg(data.error || T.couldNot);
       else {
-        setMsg('✓ Bet placed. Good luck!');
+        setMsg(T.placed);
         setAmount(0); setPick(null);
         onPlaced();
       }
     } catch {
-      setMsg('Connection error.');
+      setMsg(T.connErr);
     } finally {
       setBusy(false);
     }
@@ -144,9 +197,9 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
     <article className={'card' + (live ? ' is-live' : '')}>
       <div className="card-top">
         <span className="stage">{match.group || match.stage.split('_').join(' ')}</span>
-        {done ? <span className="tag done">FINAL</span>
-          : (live || started) ? <span className="tag live">● LIVE</span>
-          : <span className="tag time">{kickoff.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TZ })} · {kickoff.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: TZ })}</span>}
+        {done ? <span className="tag done">{T.final}</span>
+          : (live || started) ? <span className="tag live">{T.live}</span>
+          : <span className="tag time">{kickoff.toLocaleTimeString(LOC, { hour: 'numeric', minute: '2-digit', timeZone: TZ })} · {kickoff.toLocaleDateString(LOC, { month: 'short', day: 'numeric', timeZone: TZ })}</span>}
       </div>
 
       <div className="teams">
@@ -164,7 +217,7 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
       </div>
 
       {pot > 0 && (
-        <div className="pot">💰 POT <b>{fmtMoney(pot)}</b> · {matchBets.length} bet{matchBets.length > 1 ? 's' : ''}</div>
+        <div className="pot">💰 {T.pot} <b>{fmtMoney(pot)}</b> · {matchBets.length} {matchBets.length > 1 ? T.betsWord : T.betWord}</div>
       )}
 
       {/* Everyone's bets on this match */}
@@ -177,9 +230,9 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
                 <span className="who">{b.player}</span>
                 <span className="what">{betLabel(b, match)}</span>
                 <span className="amt">{fmtMoney(b.amount)}</span>
-                {s && <span className="pay">{s.won ? '→ ' + fmtMoney(s.payout) : (s.payout > 0 ? '↩ refund' : '✗')}</span>}
+                {s && <span className="pay">{s.won ? '→ ' + fmtMoney(s.payout) : (s.payout > 0 ? T.refund : '✗')}</span>}
                 {!s && isOpen(match) && b.player === player && (
-                  <button className="x" title="Cancel bet" onClick={() => onCancel(b.id)}>✕</button>
+                  <button className="x" title={T.cancelTitle} onClick={() => onCancel(b.id)}>✕</button>
                 )}
               </div>
             );
@@ -189,12 +242,12 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
 
       {bettable && (
         !open ? (
-          <button className="cta" onClick={() => setOpen(true)}>PLACE YOUR BET</button>
+          <button className="cta" onClick={() => setOpen(true)}>{T.placeBet}</button>
         ) : (
           <div className="panel">
             <div className="type-switch">
-              <button className={type === '1X2' ? 'on' : ''} onClick={() => setType('1X2')}>Match Winner</button>
-              <button className={type === 'SCORE' ? 'on' : ''} onClick={() => setType('SCORE')}>Exact Score</button>
+              <button className={type === '1X2' ? 'on' : ''} onClick={() => setType('1X2')}>{T.matchWinner}</button>
+              <button className={type === 'SCORE' ? 'on' : ''} onClick={() => setType('SCORE')}>{T.exactScore}</button>
             </div>
 
             {type === '1X2' ? (
@@ -202,7 +255,7 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
                 {(['HOME', 'DRAW', 'AWAY'] as PickT[]).map((p) => (
                   <button key={p} className={'pick' + (pick === p ? ' sel' : '')} onClick={() => setPick(p)}>
                     {p === 'HOME' ? '1' : p === 'DRAW' ? 'X' : '2'}
-                    <small>{p === 'HOME' ? match.homeTeam.tla || 'Home' : p === 'AWAY' ? match.awayTeam.tla || 'Away' : 'Draw'}</small>
+                    <small>{p === 'HOME' ? match.homeTeam.tla || T.home : p === 'AWAY' ? match.awayTeam.tla || T.away : T.draw}</small>
                   </button>
                 ))}
               </div>
@@ -226,22 +279,22 @@ function MatchCard({ match, bets, player, onPlaced, onCancel }: {
               {CHIP_VALUES.map((v) => (
                 <button key={v} className="chip" onClick={() => setAmount(amount + v)}>+{v / 1000}K</button>
               ))}
-              <button className="chip clear" onClick={() => setAmount(0)}>CLEAR</button>
+              <button className="chip clear" onClick={() => setAmount(0)}>{T.clear}</button>
             </div>
             <div className="amount-row">
               <input
-                type="number" min={0} placeholder="Amount"
+                type="number" min={0} placeholder={T.amountPh}
                 value={amount || ''} onChange={(e) => setAmount(Math.max(0, Math.round(Number(e.target.value) || 0)))}
               />
-              <button className="gold" disabled={busy} onClick={placeBet}>{busy ? '...' : 'BET ' + (amount ? fmtMoney(amount) : '')}</button>
+              <button className="gold" disabled={busy} onClick={placeBet}>{busy ? '...' : T.betBtn + (amount ? fmtMoney(amount) : '')}</button>
             </div>
             {msg && <p className={'note' + (msg.startsWith('✓') ? ' ok' : '')}>{msg}</p>}
-            <button className="ghost" onClick={() => { setOpen(false); setMsg(''); }}>Close</button>
+            <button className="ghost" onClick={() => { setOpen(false); setMsg(''); }}>{T.close}</button>
           </div>
         )
       )}
-      {started && grace && <p className="grace-note">⏱ LATE WINDOW OPEN — bets allowed until min 4 while it's 0–0</p>}
-      {started && !grace && <p className="locked">🔒 ALL BETS CLOSED — match in play</p>}
+      {started && grace && <p className="grace-note">{T.graceNote}</p>}
+      {started && !grace && <p className="locked">{T.locked}</p>}
     </article>
   );
 }
@@ -264,10 +317,10 @@ export default function Home() {
     try {
       const rm = await fetch('/api/matches');
       const dm = await rm.json().catch(() => ({ error: 'Matches API returned an invalid response.' }));
-      if (dm.error) setErr('Matches: ' + dm.error);
+      if (dm.error) setErr(T.matchesPrefix + dm.error);
       else { setMatches(dm.matches || []); setErr(''); }
     } catch {
-      setErr('Could not load matches. Check your connection.');
+      setErr(T.loadMatchesErr);
     }
     try {
       const rb = await fetch('/api/bets');
@@ -275,7 +328,7 @@ export default function Home() {
         setErr((e) => (e ? e + ' · ' : '') + 'Bets API not found: the file pages/api/bets.ts is missing in GitHub.');
       } else {
         const db = await rb.json().catch(() => ({ error: 'Bets API returned an invalid response.' }));
-        if (db.error) setErr((e) => (e ? e + ' · ' : '') + 'Bets: ' + db.error);
+        if (db.error) setErr((e) => (e ? e + ' · ' : '') + T.betsPrefix + db.error);
         else setBets(db.bets || []);
       }
     } catch {
@@ -293,9 +346,9 @@ export default function Home() {
     try {
       const r = await fetch('/api/bets?id=' + encodeURIComponent(id) + '&player=' + encodeURIComponent(player), { method: 'DELETE' });
       const d = await r.json();
-      if (!r.ok) alert(d.error || 'Could not cancel.');
+      if (!r.ok) alert(d.error || T.couldNotCancel);
       else load();
-    } catch { alert('Connection error.'); }
+    } catch { alert(T.connErr); }
   }
 
   function enter() {
@@ -349,13 +402,13 @@ export default function Home() {
   }, [bets, finished]);
 
   const NAV: [View, string][] = [
-    ['today', '🎰 Today'], ['active', '🎟 Active Bets'], ['results', '📜 Results'], ['winners', '🏆 Winners'],
+    ['today', T.navToday], ['active', T.navActive], ['results', T.navResults], ['winners', T.navWinners],
   ];
 
   return (
     <>
       <Head>
-        <title>{CLUB + ' — World Cup Betting Club'}</title>
+        <title>{CLUB + T.titleSuffix}</title>
         <meta name="description" content="Private World Cup 2026 betting pool." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -368,16 +421,16 @@ export default function Home() {
         <div className="gate">
           <div className="gate-card">
             <div className="gate-mark">{CLUB} ❄</div>
-            <p className="gate-sub">WORLD CUP 2026 · PRIVATE BETTING CLUB</p>
-            <p className="gate-q">Who's playing tonight?</p>
+            <p className="gate-sub">{T.gateSub}</p>
+            <p className="gate-q">{T.gateQ}</p>
             <input
               autoFocus value={nameInput} maxLength={30}
               onChange={(e) => setNameInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && enter()}
-              placeholder="Your name"
+              placeholder={T.namePh}
             />
-            <button className="gold big" onClick={enter}>ENTER THE CLUB</button>
-            <p className="gate-note">Use the same name every time — your bets and winnings are tracked by name.</p>
+            <button className="gold big" onClick={enter}>{T.enter}</button>
+            <p className="gate-note">{T.gateNote}</p>
           </div>
         </div>
       )}
@@ -385,11 +438,11 @@ export default function Home() {
       <main className="wrap">
         <header className="hero">
           <h1 className="mark">{CLUB} ❄</h1>
-          <p className="sub">WORLD CUP 2026 BETTING CLUB · AUTO-REFRESH EVERY MINUTE</p>
+          <p className="sub">{T.sub}</p>
           {player && (
             <div className="player-chip">
               🎩 {player}
-              <button onClick={() => { setPlayer(''); setNameInput(''); try { localStorage.removeItem(PLAYER_KEY); } catch {} }}>switch</button>
+              <button onClick={() => { setPlayer(''); setNameInput(''); try { localStorage.removeItem(PLAYER_KEY); } catch {} }}>{T.switchP}</button>
             </div>
           )}
         </header>
@@ -401,18 +454,18 @@ export default function Home() {
         </nav>
 
         {err && <div className="warn">{err}</div>}
-        {!ready && <p className="empty">Shuffling the deck…</p>}
+        {!ready && <p className="empty">{T.loading}</p>}
 
         {/* ---- TODAY ---- */}
         {ready && view === 'today' && (
           <>
-            <h2 className="h">Today's Board · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: TZ })}</h2>
+            <h2 className="h">{T.todayBoard}{new Date().toLocaleDateString(LOC, { weekday: 'long', month: 'long', day: 'numeric', timeZone: TZ })}</h2>
             {todays.length
               ? todays.map((m) => <MatchCard key={m.id} match={m} bets={bets} player={player} onPlaced={load} onCancel={cancelBet} />)
-              : <p className="empty">No matches today. The table reopens with the next fixture.</p>}
+              : <p className="empty">{T.noToday}</p>}
             {upcoming.length > 0 && (
               <>
-                <h2 className="h">Coming Up — bet early</h2>
+                <h2 className="h">{T.comingUp}</h2>
                 {upcoming.slice(0, 10).map((m) => <MatchCard key={m.id} match={m} bets={bets} player={player} onPlaced={load} onCancel={cancelBet} />)}
               </>
             )}
@@ -422,31 +475,31 @@ export default function Home() {
         {/* ---- ACTIVE BETS ---- */}
         {ready && view === 'active' && (
           <>
-            <h2 className="h">Active Bets — money on the table</h2>
+            <h2 className="h">{T.activeH}</h2>
             {activeBetMatches.length
               ? activeBetMatches.map((m) => <MatchCard key={m.id} match={m} bets={bets} player={player} onPlaced={load} onCancel={cancelBet} />)
-              : <p className="empty">No live tickets. Go to Today and put something on the line.</p>}
+              : <p className="empty">{T.noActive}</p>}
           </>
         )}
 
         {/* ---- RESULTS ---- */}
         {ready && view === 'results' && (
           <>
-            <h2 className="h">Past Matches & Settled Pots</h2>
+            <h2 className="h">{T.resultsH}</h2>
             {finished.length
               ? finished.slice(0, 40).map((m) => <MatchCard key={m.id} match={m} bets={bets} player={player} onPlaced={load} onCancel={cancelBet} />)
-              : <p className="empty">No finished matches yet.</p>}
+              : <p className="empty">{T.noResults}</p>}
           </>
         )}
 
         {/* ---- WINNERS ---- */}
         {ready && view === 'winners' && (
           <>
-            <h2 className="h">The Leaderboard — who owes who</h2>
+            <h2 className="h">{T.winnersH}</h2>
             {board.length ? (
               <div className="board">
                 <div className="board-row head">
-                  <span>#</span><span>Player</span><span>Bets</span><span>Hits</span><span>Staked</span><span>Returned</span><span>Net</span>
+                  <span>#</span><span>{T.thPlayer}</span><span>{T.thBets}</span><span>{T.thHits}</span><span>{T.thStaked}</span><span>{T.thReturned}</span><span>{T.thNet}</span>
                 </div>
                 {board.map((p, i) => (
                   <div key={p.name} className={'board-row' + (p.name === player ? ' me' : '')}>
@@ -461,9 +514,9 @@ export default function Home() {
                     </span>
                   </div>
                 ))}
-                <p className="hint">How the pot works: per match and bet type, losers' stakes are split among winners proportionally to what each one bet. If nobody hits it, everyone gets refunded. "Net" is what each player is up or down — settle up in cash accordingly. 🤝</p>
+                <p className="hint">{T.potHint}</p>
               </div>
-            ) : <p className="empty">No bets settled yet. The crown awaits.</p>}
+            ) : <p className="empty">{T.noWinners}</p>}
           </>
         )}
 
